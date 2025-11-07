@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UrbanFlow AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-primary-gradient {
+            background: linear-gradient(to right, #4dd0e1, #1e88e5);
+            transition: all 0.2s ease;
+        }
+        .btn-primary-gradient:hover {
+            opacity: 0.9;
+            box-shadow: 0 4px 15px rgba(30, 136, 229, 0.4);
+        }
+
+        .dark-bg {
+            background-color: #0d121c;
+        }
+        .sidebar-bg {
+            background-color: #1a202c;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .color-high-traffic { background-color: #ef4444; }
+        .color-medium-traffic { background-color: #f59e0b; }
+        .color-low-traffic { background-color: #10b981; }
+        .color-user-reports { background-color: #3b82f6; }
+
+        .leaflet-popup-content-wrapper {
+            background-color: #1a202c !important;
+            border-radius: 8px !important;
+        }
+        .leaflet-popup-content {
+            color: #e5e7eb !important;
+            font-size: 13px !important;
+        }
+        .leaflet-popup-tip {
+            background-color: #1a202c !important;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 dark-bg min-h-screen">
+    <div id="app-container" class="min-h-screen">
+
+        <!-- LOGIN VIEW -->
+        <div id="login-view" class="flex items-center justify-center min-h-screen">
+            <div class="p-8 grid md:grid-cols-2 gap-16 items-center max-w-6xl mx-auto">
+                
+                <div class="text-gray-800 space-y-8 p-4">
+                    <div class="flex items-center space-x-2">
+                        <img src="https://placehold.co/40x40/1e88e5/ffffff/png?text=U" alt="Logo" class="rounded-full shadow-lg">
+                        <span class="text-3xl font-bold">UrbanFlow AI</span>
+                    </div>
+                    <h1 class="text-xl text-gray-600 font-medium max-w-md">Predictive Mobility Intelligence for Smart Cities</h1>
+                    
+                    <div class="grid grid-cols-3 gap-4 mt-8">
+                        <div class="bg-white p-4 rounded-xl shadow-lg border border-gray-100 space-y-1">
+                            <i data-lucide="line-chart" class="text-blue-600 w-6 h-6"></i>
+                            <p class="font-semibold text-sm">Traffic Prediction</p>
+                            <p class="text-xs text-gray-500">Real-time congestion forecasting</p>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl shadow-lg border border-gray-100 space-y-1">
+                            <i data-lucide="parking-circle" class="text-blue-600 w-6 h-6"></i>
+                            <p class="font-semibold text-sm">Parking Intelligence</p>
+                            <p class="text-xs text-gray-500">Availability predictions</p>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl shadow-lg border border-gray-100 space-y-1">
+                            <i data-lucide="users" class="text-blue-600 w-6 h-6"></i>
+                            <p class="font-semibold text-sm">Crowd Validation</p>
+                            <p class="text-xs text-gray-500">Community-powered insights</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-8 md:p-10 rounded-2xl shadow-2xl w-full max-w-sm mx-auto">
+                    <h2 class="text-2xl font-semibold text-gray-900 mb-2">Welcome Back</h2>
+                    <p class="text-gray-500 mb-6 text-sm">Sign in to access the dashboard</p>
+
+                    <form onsubmit="event.preventDefault(); handleLogin();" class="space-y-4">
+                        <div>
+                            <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                            <input type="email" id="email" value="your@email.com" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required>
+                        </div>
+                        <div>
+                            <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                            <input type="password" id="password" value="********" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" required>
+                        </div>
+                        
+                        <button type="submit" class="w-full text-white font-bold py-2 px-4 rounded-xl btn-primary-gradient mt-4">
+                            Sign In
+                        </button>
+                    </form>
+                    
+                    <p class="text-center text-xs text-gray-400 mt-6">
+                        Demo credentials: any email/password
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- DASHBOARD VIEW -->
+        <div id="dashboard-view" class="hidden dark-bg min-h-screen flex flex-col">
+            
+            <header class="bg-sidebar-bg p-4 shadow-lg flex justify-between items-center sticky top-0 z-10">
+                <div class="flex items-center space-x-2 text-white">
+                    <img src="https://placehold.co/30x30/1e88e5/ffffff/png?text=U" alt="Logo" class="rounded-full">
+                    <span class="text-xl font-semibold">UrbanFlow AI</span>
+                    <span class="text-sm text-gray-400">| Real-time Mobility Intelligence</span>
+                </div>
+                <button onclick="handleLogout()" class="text-white text-sm px-4 py-1 border border-gray-700 rounded-xl hover:bg-gray-700 transition duration-150">
+                    <i data-lucide="log-out" class="w-4 h-4 inline-block mr-1"></i>
+                    Logout
+                </button>
+            </header>
+
+            <div class="flex flex-1 overflow-hidden">
+                
+                <aside class="sidebar-bg w-full md:w-80 flex-shrink-0 overflow-y-auto p-4 space-y-6 no-scrollbar">
+                    
+                    <h2 class="text-2xl font-bold text-white border-b border-gray-700 pb-2 mb-4">Parking Spots</h2>
+                    <p class="text-sm text-gray-400 mb-4">AI-powered availability predictions</p>
+                    
+                    <div class="p-4 bg-gray-800 rounded-xl shadow-xl space-y-4">
+                        <h3 class="text-lg font-semibold text-white">AI Prediction Control</h3>
+                        <div class="space-y-2">
+                            <p class="text-sm font-medium text-gray-300">Current Time</p>
+                            <div class="flex justify-between items-center text-sm font-bold">
+                                <span id="current-time-label" class="text-green-400">T+0h</span>
+                                <span class="text-xs text-gray-400">Now</span>
+                            </div>
+                        </div>
+
+                        <div class="flex space-x-2">
+                            <button id="time-0h" class="time-btn flex-1 bg-blue-600 text-white text-xs font-bold py-2 rounded-xl" data-time="T+0h">T+0h</button>
+                            <button id="time-1h" class="time-btn flex-1 bg-gray-700 text-gray-300 text-xs py-2 rounded-xl hover:bg-gray-600" data-time="T+1h">+1h</button>
+                            <button id="time-2h" class="time-btn flex-1 bg-gray-700 text-gray-300 text-xs py-2 rounded-xl hover:bg-gray-600" data-time="T+2h">+2h</button>
+                            <button id="time-3h" class="time-btn flex-1 bg-gray-700 text-gray-300 text-xs py-2 rounded-xl hover:bg-gray-600" data-time="T+3h">+3h</button>
+                        </div>
+                        
+                        <div class="space-y-2 pt-2 text-sm text-gray-300">
+                            <div class="flex items-center space-x-2">
+                                <i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i>
+                                <span>Model 1: Traffic Prediction Active</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <i data-lucide="check-circle" class="w-4 h-4 text-green-500"></i>
+                                <span>Model 2: Parking Prediction Active</span>
+                            </div>
+                        </div>
+
+                        <div class="pt-4 border-t border-gray-700 space-y-2">
+                            <p class="text-sm font-medium text-gray-300">Map Layers</p>
+                            <button id="toggle-heatmap" class="w-full bg-gray-700 text-gray-300 text-xs py-2 rounded-xl hover:bg-gray-600 transition">
+                                🔥 Toggle Heat Map
+                            </button>
+                            <button id="toggle-clusters" class="w-full bg-gray-700 text-gray-300 text-xs py-2 rounded-xl hover:bg-gray-600 transition">
+                                📍 Show Clusters
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="parking-cards-container" class="space-y-4">
+                        <template id="parking-card-template">
+                            <div class="parking-card p-4 bg-gray-800 rounded-xl shadow-xl space-y-2">
+                                <div class="flex justify-between items-start">
+                                    <h3 class="text-lg font-semibold text-white card-title">Mall Parking A</h3>
+                                    <span class="text-2xl font-bold card-available">82</span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm">
+                                    <p class="text-gray-400 card-subtitle">Marine Drive</p>
+                                    <span class="text-green-400 font-medium card-status">Available</span>
+                                </div>
+                                <div class="text-sm pt-2">
+                                    <p class="text-gray-300">Occupancy: <span class="font-medium card-occupancy-percent">45%</span></p>
+                                    <div class="w-full bg-gray-700 rounded-full h-2.5 mt-1">
+                                        <div class="h-2.5 rounded-full card-occupancy-bar" style="width: 45%; background-color: #10b981;"></div>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-1">Total capacity: <span class="card-capacity">150</span> spots</p>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                </aside>
+                
+                <main class="flex-1 p-4 relative overflow-hidden">
+                    <div class="relative w-full h-full bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+                        
+                        <div class="absolute top-4 left-4 z-10 bg-white text-gray-800 px-4 py-2 rounded-lg font-bold shadow-xl">
+                            Prediction: <span id="map-prediction-label">T+0h</span>
+                        </div>
+
+                        <div id="map" class="w-full h-full rounded-2xl overflow-hidden" style="min-height:400px;"></div>
+
+                        <div class="absolute bottom-4 left-4 z-10 bg-gray-800 p-4 rounded-xl shadow-2xl border border-gray-700">
+                            <h4 class="font-bold text-white mb-2">Map Legend</h4>
+                            <ul class="text-sm space-y-1 text-gray-300">
+                                <li class="flex items-center space-x-2"><div class="w-3 h-3 rounded-full color-high-traffic"></div><span>High Traffic</span></li>
+                                <li class="flex items-center space-x-2"><div class="w-3 h-3 rounded-full color-medium-traffic"></div><span>Medium Traffic</span></li>
+                                <li class="flex items-center space-x-2"><div class="w-3 h-3 rounded-full color-low-traffic"></div><span>Low Traffic</span></li>
+                                <li class="flex items-center space-x-2"><div class="w-3 h-3 rounded-full color-user-reports"></div><span>User Reports</span></li>
+                            </ul>
+                        </div>
+                        
+                        <!-- Botpress Webchat Integration -->
+                        <script src="https://cdn.botpress.cloud/webchat/v3.3/inject.js" defer></script>
+                        <script src="https://files.bpcontent.cloud/2025/11/07/00/20251107004823-U68KXL77.js" defer></script>
+                    </div>
+                </main>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const parkingData = [
+            { id: 1, title: "Mall Parking A", subtitle: "Marine Drive", available: 82, capacity: 150, occupancy: 45, color: '#10b981' },
+            { id: 2, title: "Station Parking", subtitle: "Railway Station", available: 80, capacity: 200, occupancy: 60, color: '#f59e0b' },
+            { id: 3, title: "Market Lot B", subtitle: "Civil Lines", available: 70, capacity: 100, occupancy: 30, color: '#10b981' },
+            { id: 4, title: "Hospital Parking", subtitle: "Shankar Nagar", available: 36, capacity: 80, occupancy: 55, color: '#f59e0b' },
+            { id: 5, title: "Plaza Garage", subtitle: "Pandri", available: 72, capacity: 120, occupancy: 40, color: '#10b981' }
+        ];
+        
+        let loginView, dashboardView, mapPredictionLabel, currentTimeLabel, timeButtons;
+        let map = null;
+        let heatmapLayer = null;
+        let clusterGroup = null;
+        let parkingMarkers = [];
+
+        function initializeMap() {
+            const baseLat = 21.2514;
+            const baseLng = 81.6296;
+
+            map = L.map('map').setView([baseLat, baseLng], 13);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            const heatmapData = [];
+            parkingData.forEach((p, i) => {
+                const lat = baseLat + (i - parkingData.length / 2) * 0.006;
+                const lng = baseLng + (i - parkingData.length / 2) * 0.008;
+
+                let color = '#10b981';
+                if (p.occupancy > 70) color = '#ef4444';
+                else if (p.occupancy > 50) color = '#f59e0b';
+
+                const circle = L.circleMarker([lat, lng], {
+                    radius: 9,
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.9,
+                    weight: 1
+                }).addTo(map);
+
+                parkingMarkers.push({marker: circle, lat: lat, lng: lng, data: p});
+
+                const popupHtml = `
+                    <div style="min-width: 180px;">
+                        <strong style="color: #fff;">${p.title}</strong><br/>
+                        <span style="color: #ccc;">${p.subtitle}</span><br/>
+                        <hr style="border-color: #444; margin: 4px 0;">
+                        <span style="color: #e5e7eb;">Available: <strong>${p.available}</strong> / ${p.capacity}</span><br/>
+                        <span style="color: #e5e7eb;">Occupancy: <strong>${p.occupancy}%</strong></span>
+                    </div>
+                `;
+                circle.bindPopup(popupHtml);
+
+                heatmapData.push([lat, lng, p.occupancy / 100]);
+            });
+
+            heatmapLayer = L.heatLayer(heatmapData, {
+                radius: 25,
+                blur: 15,
+                maxZoom: 17,
+                gradient: {0.0: '#10b981', 0.5: '#f59e0b', 1.0: '#ef4444'}
+            });
+
+            document.getElementById('toggle-heatmap').addEventListener('click', toggleHeatmap);
+            document.getElementById('toggle-clusters').addEventListener('click', toggleClusters);
+        }
+
+        function toggleHeatmap() {
+            if (map.hasLayer(heatmapLayer)) {
+                map.removeLayer(heatmapLayer);
+            } else {
+                heatmapLayer.addTo(map);
+            }
+        }
+
+        function toggleClusters() {
+            if (clusterGroup && map.hasLayer(clusterGroup)) {
+                map.removeLayer(clusterGroup);
+                clusterGroup = null;
+            } else {
+                createClusters();
+                if (clusterGroup) clusterGroup.addTo(map);
+            }
+        }
+
+        function createClusters() {
+            if (parkingMarkers.length === 0) return;
+
+            const cellSize = 0.01;
+            const clusters = {};
+
+            parkingMarkers.forEach(pm => {
+                const cellKey = `${Math.floor(pm.lat / cellSize)}-${Math.floor(pm.lng / cellSize)}`;
+                if (!clusters[cellKey]) clusters[cellKey] = [];
+                clusters[cellKey].push(pm);
+            });
+
+            clusterGroup = L.featureGroup();
+
+            Object.values(clusters).forEach(group => {
+                if (group.length > 1) {
+                    const avgLat = group.reduce((sum, pm) => sum + pm.lat, 0) / group.length;
+                    const avgLng = group.reduce((sum, pm) => sum + pm.lng, 0) / group.length;
+                    const totalOccupancy = group.reduce((sum, pm) => sum + pm.data.occupancy, 0) / group.length;
+
+                    let clusterColor = '#10b981';
+                    if (totalOccupancy > 70) clusterColor = '#ef4444';
+                    else if (totalOccupancy > 50) clusterColor = '#f59e0b';
+
+                    const clusterCircle = L.circleMarker([avgLat, avgLng], {
+                        radius: 12 + (group.length * 2),
+                        color: clusterColor,
+                        fillColor: clusterColor,
+                        fillOpacity: 0.6,
+                        weight: 2,
+                        dashArray: '5, 5'
+                    });
+
+                    const clusterPopup = `
+                        <div style="min-width: 150px;">
+                            <strong style="color: #fff;">Parking Cluster</strong><br/>
+                            <hr style="border-color: #444; margin: 4px 0;">
+                            <span style="color: #e5e7eb;">Locations: <strong>${group.length}</strong></span><br/>
+                            <span style="color: #e5e7eb;">Avg Occupancy: <strong>${Math.round(totalOccupancy)}%</strong></span>
+                        </div>
+                    `;
+                    clusterCircle.bindPopup(clusterPopup);
+                    clusterGroup.addLayer(clusterCircle);
+                }
+            });
+        }
+
+        function initializeDOMElements() {
+            loginView = document.getElementById('login-view');
+            dashboardView = document.getElementById('dashboard-view');
+            mapPredictionLabel = document.getElementById('map-prediction-label');
+            currentTimeLabel = document.getElementById('current-time-label');
+            timeButtons = document.querySelectorAll('.time-btn');
+
+            timeButtons.forEach(btn => {
+                btn.addEventListener('click', handleTimePredictionClick);
+            });
+        }
+
+        function createParkingCard(data) {
+            const template = document.getElementById('parking-card-template');
+            if (!template) return null;
+
+            const clone = template.content.cloneNode(true);
+            const card = clone.querySelector('.parking-card');
+            if (!card) return null;
+
+            card.querySelector('.card-title').textContent = data.title;
+            card.querySelector('.card-subtitle').textContent = data.subtitle;
+            card.querySelector('.card-available').textContent = data.available;
+            card.querySelector('.card-occupancy-percent').textContent = `${data.occupancy}%`;
+            card.querySelector('.card-capacity').textContent = data.capacity;
+
+            const bar = card.querySelector('.card-occupancy-bar');
+            if (bar) {
+                bar.style.width = `${data.occupancy}%`;
+                if (data.occupancy > 70) {
+                    bar.style.backgroundColor = '#ef4444';
+                } else if (data.occupancy > 50) {
+                    bar.style.backgroundColor = '#f59e0b';
+                } else {
+                    bar.style.backgroundColor = '#10b981';
+                }
+            }
+
+            return clone;
+        }
+
+        function renderParkingCards() {
+            const container = document.getElementById('parking-cards-container');
+            if (!container) return;
+
+            container.innerHTML = '';
+            parkingData.forEach(data => {
+                const card = createParkingCard(data);
+                if (card) {
+                    container.appendChild(card);
+                }
+            });
+            setTimeout(() => {
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+            }, 50);
+        }
+
+        function showDashboard() {
+            if (loginView && dashboardView) {
+                loginView.classList.add('hidden');
+                dashboardView.classList.remove('hidden');
+                document.body.classList.add('dark-bg');
+                renderParkingCards();
+                if (map) {
+                    setTimeout(() => map.invalidateSize(), 200);
+                }
+            }
+        }
+
+        function showLogin() {
+            if (loginView && dashboardView) {
+                dashboardView.classList.add('hidden');
+                loginView.classList.remove('hidden');
+                document.body.classList.remove('dark-bg');
+            }
+        }
+
+        function handleLogin() {
+            showDashboard();
+        }
+
+        function handleLogout() {
+            showLogin();
+        }
+
+        function handleTimePredictionClick(event) {
+            const clickedBtn = event.currentTarget;
+            const timeValue = clickedBtn.getAttribute('data-time');
+            
+            if (!timeButtons || timeButtons.length === 0) return;
+
+            timeButtons.forEach(btn => {
+                if (btn === clickedBtn) {
+                    btn.classList.remove('bg-gray-700', 'text-gray-300', 'hover:bg-gray-600');
+                    btn.classList.add('bg-blue-600', 'text-white');
+                } else {
+                    btn.classList.remove('bg-blue-600', 'text-white');
+                    btn.classList.add('bg-gray-700', 'text-gray-300', 'hover:bg-gray-600');
+                }
+            });
+
+            if (mapPredictionLabel) mapPredictionLabel.textContent = timeValue;
+            if (currentTimeLabel) currentTimeLabel.textContent = timeValue;
+
+            console.log(`Fetching data for ${timeValue}...`);
+        }
+
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                initializeDOMElements();
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+                initializeMap();
+                showLogin();
+            }, 100);
+        });
+    </script>
+</body>
+</html>
