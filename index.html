@@ -57,6 +57,19 @@
         .leaflet-popup-tip {
             background-color: #1a202c !important;
         }
+
+        .search-results {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .search-result-item:hover {
+            background-color: #374151;
+        }
+
+        .search-input:focus {
+            box-shadow: 0 0 0 3px rgba(30, 136, 229, 0.2);
+        }
     </style>
 </head>
 
@@ -177,6 +190,10 @@
                             <button id="toggle-clusters" class="w-full bg-gray-700 text-gray-300 text-xs py-2 rounded-xl hover:bg-gray-600 transition">
                                 📍 Show Clusters
                             </button>
+                            <button id="toggle-location" class="w-full bg-blue-700 text-white text-xs py-2 rounded-xl hover:bg-blue-600 transition flex items-center justify-center space-x-2">
+                                <i data-lucide="crosshair" class="w-4 h-4"></i>
+                                <span>My Location</span>
+                            </button>
                         </div>
                     </div>
 
@@ -204,10 +221,57 @@
 
                 </aside>
                 
-                <main class="flex-1 p-4 relative overflow-hidden">
-                    <div class="relative w-full h-full bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
-                        
-                        <div class="absolute top-4 left-4 z-10 bg-white text-gray-800 px-4 py-2 rounded-lg font-bold shadow-xl">
+                <main class="flex-1 p-4 relative overflow-hidden flex flex-col">
+                    <!-- Search Bar & Details Panel -->
+                    <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+                        <!-- Search Bar -->
+                        <div style="flex: 1; max-width: 400px;">
+                            <div style="position: relative;">
+                                <div style="display: flex; align-items: center; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow: hidden;">
+                                    <svg style="width: 20px; height: 20px; color: #9CA3AF; margin-left: 12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                    <input 
+                                        type="text" 
+                                        id="search-input" 
+                                        placeholder="Search locations..." 
+                                        style="flex: 1; padding: 12px; color: #1F2937; outline: none; font-size: 14px; border: none; font-family: Inter, sans-serif;"
+                                    >
+                                </div>
+                                <div id="search-results" style="position: absolute; top: 48px; left: 0; right: 0; background: #1F2937; border-radius: 8px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); border: 1px solid #374151; max-height: 300px; overflow-y: auto; display: none; z-index: 1000; width: 100%;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Location Details Panel -->
+                        <div id="location-panel" style="background: white; border-radius: 8px; padding: 14px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-width: 280px; display: none; color: #1F2937;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                                <div>
+                                    <h3 id="panel-title" style="font-weight: 600; font-size: 16px; margin: 0 0 4px 0;">Location</h3>
+                                    <p id="panel-subtitle" style="margin: 0; color: #6B7280; font-size: 12px;">Details</p>
+                                </div>
+                                <button onclick="closeLocationPanel()" style="background: none; border: none; cursor: pointer; font-size: 18px; color: #6B7280;">✕</button>
+                            </div>
+                            <div style="border-top: 1px solid #E5E7EB; padding-top: 10px; margin-top: 10px;">
+                                <div style="display: flex; margin-bottom: 8px; font-size: 13px;">
+                                    <span style="color: #6B7280; min-width: 80px;">Available:</span>
+                                    <span id="panel-available" style="font-weight: 600; color: #10b981;">--</span>
+                                </div>
+                                <div style="display: flex; margin-bottom: 8px; font-size: 13px;">
+                                    <span style="color: #6B7280; min-width: 80px;">Occupancy:</span>
+                                    <span id="panel-occupancy" style="font-weight: 600; color: #f59e0b;">--</span>
+                                </div>
+                                <div style="display: flex; margin-bottom: 12px; font-size: 13px;">
+                                    <span style="color: #6B7280; min-width: 80px;">Capacity:</span>
+                                    <span id="panel-capacity" style="font-weight: 600;">--</span>
+                                </div>
+                                <div id="panel-distance" style="background: #F3F4F6; padding: 8px; border-radius: 6px; font-size: 12px; color: #374151; margin-bottom: 10px; display: none;">
+                                </div>
+                                <button id="directions-btn" onclick="getDirections()" style="width: 100%; padding: 8px; background: #1e88e5; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;">Get Directions</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="relative w-full flex-1 bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+                        <div class="absolute top-4 right-4 z-10 bg-white text-gray-800 px-4 py-2 rounded-lg font-bold shadow-xl">
                             Prediction: <span id="map-prediction-label">T+0h</span>
                         </div>
 
@@ -247,6 +311,7 @@
         let heatmapLayer = null;
         let clusterGroup = null;
         let parkingMarkers = [];
+        let userLocationMarker = null;
 
         function initializeMap() {
             const baseLat = 21.2514;
@@ -301,6 +366,148 @@
 
             document.getElementById('toggle-heatmap').addEventListener('click', toggleHeatmap);
             document.getElementById('toggle-clusters').addEventListener('click', toggleClusters);
+            document.getElementById('toggle-location').addEventListener('click', toggleUserLocation);
+            
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                searchInput.addEventListener('input', handleSearch);
+                console.log('Search input attached');
+            }
+        }
+
+        function toggleUserLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    
+                    if (userLocationMarker) {
+                        map.removeLayer(userLocationMarker);
+                    }
+                    
+                    userLocationMarker = L.circleMarker([lat, lng], {
+                        radius: 10,
+                        color: '#1e88e5',
+                        fillColor: '#4dd0e1',
+                        fillOpacity: 0.8,
+                        weight: 2
+                    }).addTo(map);
+                    
+                    userLocationMarker.bindPopup('<div style="color: #fff; background: #1a202c; padding: 8px;"><strong>Your Location</strong></div>').openPopup();
+                    map.setView([lat, lng], 14);
+                }, function(error) {
+                    alert('Unable to get location');
+                });
+            }
+        }
+
+        function handleSearch(e) {
+            const query = e.target.value.toLowerCase();
+            const resultsDiv = document.getElementById('search-results');
+            
+            if (!resultsDiv) {
+                console.error('Results div not found');
+                return;
+            }
+            
+            if (query.length === 0) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+
+            let html = '';
+            
+            for (let i = 0; i < parkingData.length; i++) {
+                const p = parkingData[i];
+                if (p.title.toLowerCase().includes(query) || p.subtitle.toLowerCase().includes(query)) {
+                    html += '<div onclick="selectParking(' + i + ')" style="padding: 12px; cursor: pointer; border-bottom: 1px solid #374151; color: white; font-size: 14px; background: #1F2937;" onmouseover="this.style.backgroundColor=\'#374151\'" onmouseout="this.style.backgroundColor=\'#1F2937\'">';
+                    html += '<div style="font-weight: 600; margin-bottom: 4px;">' + p.title + '</div>';
+                    html += '<div style="font-size: 12px; color: #9CA3AF;">' + p.subtitle + '</div>';
+                    html += '</div>';
+                }
+            }
+
+            if (html === '') {
+                html = '<div style="padding: 12px; color: #9CA3AF;">No results found</div>';
+            }
+
+            resultsDiv.innerHTML = html;
+            resultsDiv.style.display = 'block';
+        }
+
+        let selectedParkingIdx = null;
+
+        function selectParking(idx) {
+            try {
+                const parking = parkingData[idx];
+                const marker = parkingMarkers[idx];
+                selectedParkingIdx = idx;
+                document.getElementById('search-input').value = parking.title;
+                document.getElementById('search-results').style.display = 'none';
+                map.setView([marker.lat, marker.lng], 15);
+                marker.marker.openPopup();
+                showLocationPanel(idx);
+            } catch (e) {
+                console.error('Select parking error:', e);
+            }
+        }
+
+        function showLocationPanel(idx) {
+            try {
+                const parking = parkingData[idx];
+                const panel = document.getElementById('location-panel');
+                document.getElementById('panel-title').textContent = parking.title;
+                document.getElementById('panel-subtitle').textContent = parking.subtitle;
+                document.getElementById('panel-available').textContent = parking.available + ' spots';
+                document.getElementById('panel-occupancy').textContent = parking.occupancy + '%';
+                document.getElementById('panel-capacity').textContent = parking.capacity + ' total';
+                panel.style.display = 'block';
+            } catch (e) {
+                console.error('Show panel error:', e);
+            }
+        }
+
+        function closeLocationPanel() {
+            document.getElementById('location-panel').style.display = 'none';
+            selectedParkingIdx = null;
+        }
+
+        function getDirections() {
+            if (selectedParkingIdx === null) return;
+            
+            try {
+                const parking = parkingData[selectedParkingIdx];
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(function(position) {
+                        const userLat = position.coords.latitude;
+                        const userLng = position.coords.longitude;
+                        const marker = parkingMarkers[selectedParkingIdx];
+                        const distance = calculateDistance(userLat, userLng, marker.lat, marker.lng);
+                        
+                        const distancePanel = document.getElementById('panel-distance');
+                        distancePanel.innerHTML = '<strong>' + distance.toFixed(2) + ' km away</strong> • Open in Google Maps';
+                        distancePanel.style.display = 'block';
+                        distancePanel.style.cursor = 'pointer';
+                        distancePanel.onclick = function() {
+                            const url = 'https://www.google.com/maps/dir/?api=1&destination=' + marker.lat + ',' + marker.lng + '&travelmode=driving';
+                            window.open(url, '_blank');
+                        };
+                    });
+                } else {
+                    alert('Geolocation not supported');
+                }
+            } catch (e) {
+                console.error('Directions error:', e);
+            }
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
         }
 
         function toggleHeatmap() {
@@ -327,19 +534,20 @@
             const cellSize = 0.01;
             const clusters = {};
 
-            parkingMarkers.forEach(pm => {
-                const cellKey = `${Math.floor(pm.lat / cellSize)}-${Math.floor(pm.lng / cellSize)}`;
+            parkingMarkers.forEach(function(pm) {
+                const cellKey = Math.floor(pm.lat / cellSize) + '-' + Math.floor(pm.lng / cellSize);
                 if (!clusters[cellKey]) clusters[cellKey] = [];
                 clusters[cellKey].push(pm);
             });
 
             clusterGroup = L.featureGroup();
 
-            Object.values(clusters).forEach(group => {
+            Object.keys(clusters).forEach(function(key) {
+                const group = clusters[key];
                 if (group.length > 1) {
-                    const avgLat = group.reduce((sum, pm) => sum + pm.lat, 0) / group.length;
-                    const avgLng = group.reduce((sum, pm) => sum + pm.lng, 0) / group.length;
-                    const totalOccupancy = group.reduce((sum, pm) => sum + pm.data.occupancy, 0) / group.length;
+                    const avgLat = group.reduce(function(sum, pm) { return sum + pm.lat; }, 0) / group.length;
+                    const avgLng = group.reduce(function(sum, pm) { return sum + pm.lng; }, 0) / group.length;
+                    const totalOccupancy = group.reduce(function(sum, pm) { return sum + pm.data.occupancy; }, 0) / group.length;
 
                     let clusterColor = '#10b981';
                     if (totalOccupancy > 70) clusterColor = '#ef4444';
@@ -354,14 +562,7 @@
                         dashArray: '5, 5'
                     });
 
-                    const clusterPopup = `
-                        <div style="min-width: 150px;">
-                            <strong style="color: #fff;">Parking Cluster</strong><br/>
-                            <hr style="border-color: #444; margin: 4px 0;">
-                            <span style="color: #e5e7eb;">Locations: <strong>${group.length}</strong></span><br/>
-                            <span style="color: #e5e7eb;">Avg Occupancy: <strong>${Math.round(totalOccupancy)}%</strong></span>
-                        </div>
-                    `;
+                    const clusterPopup = '<div style="min-width: 150px;"><strong style="color: #fff;">Parking Cluster</strong><br/><hr style="border-color: #444; margin: 4px 0;"><span style="color: #e5e7eb;">Locations: <strong>' + group.length + '</strong></span><br/><span style="color: #e5e7eb;">Avg Occupancy: <strong>' + Math.round(totalOccupancy) + '%</strong></span></div>';
                     clusterCircle.bindPopup(clusterPopup);
                     clusterGroup.addLayer(clusterCircle);
                 }
@@ -375,7 +576,7 @@
             currentTimeLabel = document.getElementById('current-time-label');
             timeButtons = document.querySelectorAll('.time-btn');
 
-            timeButtons.forEach(btn => {
+            timeButtons.forEach(function(btn) {
                 btn.addEventListener('click', handleTimePredictionClick);
             });
         }
@@ -391,12 +592,12 @@
             card.querySelector('.card-title').textContent = data.title;
             card.querySelector('.card-subtitle').textContent = data.subtitle;
             card.querySelector('.card-available').textContent = data.available;
-            card.querySelector('.card-occupancy-percent').textContent = `${data.occupancy}%`;
+            card.querySelector('.card-occupancy-percent').textContent = data.occupancy + '%';
             card.querySelector('.card-capacity').textContent = data.capacity;
 
             const bar = card.querySelector('.card-occupancy-bar');
             if (bar) {
-                bar.style.width = `${data.occupancy}%`;
+                bar.style.width = data.occupancy + '%';
                 if (data.occupancy > 70) {
                     bar.style.backgroundColor = '#ef4444';
                 } else if (data.occupancy > 50) {
@@ -414,13 +615,13 @@
             if (!container) return;
 
             container.innerHTML = '';
-            parkingData.forEach(data => {
+            parkingData.forEach(function(data) {
                 const card = createParkingCard(data);
                 if (card) {
                     container.appendChild(card);
                 }
             });
-            setTimeout(() => {
+            setTimeout(function() {
                 if (typeof lucide !== 'undefined') {
                     lucide.createIcons();
                 }
@@ -434,7 +635,7 @@
                 document.body.classList.add('dark-bg');
                 renderParkingCards();
                 if (map) {
-                    setTimeout(() => map.invalidateSize(), 200);
+                    setTimeout(function() { map.invalidateSize(); }, 200);
                 }
             }
         }
@@ -461,7 +662,7 @@
             
             if (!timeButtons || timeButtons.length === 0) return;
 
-            timeButtons.forEach(btn => {
+            timeButtons.forEach(function(btn) {
                 if (btn === clickedBtn) {
                     btn.classList.remove('bg-gray-700', 'text-gray-300', 'hover:bg-gray-600');
                     btn.classList.add('bg-blue-600', 'text-white');
@@ -474,18 +675,20 @@
             if (mapPredictionLabel) mapPredictionLabel.textContent = timeValue;
             if (currentTimeLabel) currentTimeLabel.textContent = timeValue;
 
-            console.log(`Fetching data for ${timeValue}...`);
+            console.log('Fetching data for ' + timeValue + '...');
         }
 
-        window.addEventListener('load', () => {
-            setTimeout(() => {
+        window.addEventListener('load', function() {
+            setTimeout(function() {
                 initializeDOMElements();
                 if (typeof lucide !== 'undefined') {
                     lucide.createIcons();
                 }
-                initializeMap();
+                if (typeof L !== 'undefined') {
+                    initializeMap();
+                }
                 showLogin();
-            }, 100);
+            }, 200);
         });
     </script>
 </body>
